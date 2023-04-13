@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT 出力整形ツール</title>
+
+  <style>
+    body {
+      background-color: #222222;
+      color: #FFFFFF;
+      font-family: Arial, sans-serif;
+    }
+
+    button {
+      background-color: #303F9F;
+      color: #FFFFFF;
+      border: none;
+      padding: 8px 16px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 14px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    #format-prompt {
+      background-color: #2196F3;
+    }
+
+    textarea {
+      width: 800px;
+      resize: both;
+      overflow: auto;
+      background-color: #2b2b2b;
+      color: #FFFFFF;
+      border: 1px solid #303F9F;
+      padding: 8px;
+      font-size: 14px;
+    }
+
+    #continue {
+      background-color: #4CAF50;
+    }
+
+    #additional-option {
+      background-color: #FFC107;
+    }
+
+    #summarize-progress {
+      background-color: #F44336;
+    }
+
+    #format-prompt:hover {
+      background-color: #1E88E5;
+    }
+
+    #continue:hover {
+      background-color: #43A047;
+    }
+
+    #additional-option:hover {
+      background-color: #FFB300;
+    }
+
+    #summarize-progress:hover {
+      background-color: #E53935;
+    }
+  </style>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      document.getElementById("format-prompt").addEventListener("click", function () {
+        formatPrompt();
+      });
+
+      document.getElementById("continue").addEventListener("click", function () {
+        const prompt = document.getElementById("prompt");
+        prompt.value = "ありがとうございます。続けてください。";
+      });
+
+      document.getElementById("additional-option").addEventListener("click", function () {
+        const prompt = document.getElementById("prompt");
+        prompt.value = "ありがとうございます。追加できる項目があれば同様にお願いします。";
+      });
+
+      document.getElementById("summarize-progress").addEventListener("click", function () {
+        const responseDiv = document.getElementById("response");
+        const pastAssistantMessages = Array.from(responseDiv.children)
+          .filter(el => el.classList.contains("role-assistant"))
+          .map(el => el.textContent)
+          .join("\n");
+
+        const prompt = document.getElementById("prompt");
+        prompt.value = `これまでの会話履歴を考慮しながら、以下の内容をまとめて正規化されたJSONで出力してください。\n\n${pastAssistantMessages}`;
+      });
+
+      function formatPrompt() {
+        const theme = document.getElementById("theme").value;
+        const inputExamples = document.getElementById("input-examples").value;
+        const prompt = document.getElementById("prompt");
+
+        prompt.value = `${theme}について、${inputExamples}に分類したJSON形式で出力してください。`;
+      }
+
+      const form = document.getElementById("prompt-form");
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        handleSubmission();
+      });
+
+      async function handleSubmission() {
+        const prompt = document.getElementById("prompt").value;
+        const header = document.getElementById("input-examples").value;
+
+        const responseDiv = document.getElementById("response");
+        const response = await fetch("/submit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt: prompt,
+            pastConversations: Array.from(responseDiv.children).map(el => ({
+              role: el.classList.contains("role-user") ? "user" : "assistant",
+              content: el.textContent
+            }))
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const formattedResponse = data.Response.replace(/\n/g, '<br>');
+          responseDiv.innerHTML += `<p class="role-user"><strong>User:</strong> ${data.Prompt}</p><p class="role-assistant"><strong>Assistant:</strong> ${formattedResponse}</p>`;
+        } else {
+          alert(`<p>Error: ${response.statusText} 文字数が多いとエラーになります。また、APIキーの設定や課金上限に達していないかも確認してください</p>`);
+        }
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <h1>ChatGPT 出力整形ツール</h1>
+
+  <label for="theme">テーマ:</label><br>
+  <textarea id="theme" name="theme" rows="5" required></textarea><br>
+  <label for="input-examples">分類 (カンマ区切り):</label><br>
+  <textarea id="input-examples" name="input-examples" rows="5"></textarea><br>
+  <button type="button" id="format-prompt">プロンプト整形</button>
+  <button type="button" id="continue">続けて</button>
+  <button type="button" id="additional-option">追加の候補</button>
+
+  <br />
+  <br />
+  <form id="prompt-form">
+    <label for="prompt">プロンプト:</label><br>
+    <textarea id="prompt" name="prompt" rows="5" required></textarea><br>
+    <button type="submit">Submit</button>
+    <button type="button" id="summarize-progress">これまでの経過をまとめる</button>
+  </form>
+
+  <div id="response"></div>
+</body>
+
+</html>
